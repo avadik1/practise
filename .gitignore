@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 data/
 .ipynb_checkpoints/
+_session_log.md
