@@ -146,12 +146,58 @@ class BM25:
             self.idf_:     dict[str, float] — idf для каждого токена корпуса
         Возвращает self.
         """
-        raise NotImplementedError
+        ###1
+        self.doc_tfs_ = []
+
+        for doc in docs:
+            doc = tokenize(doc)
+            self.doc_tfs_.append(Counter(doc))
+        ###2
+        lenghts = []
+
+        for doc in docs:
+            doc = tokenize(doc)
+            lenghts.append(len(doc))
+
+        self.doc_len_ = np.array(lenghts, dtype=float)
+        ###3
+        self.avgdl_ = np.mean(lenghts)
+        ###4
+        df = {}
+
+        self.idf_ = {}
+
+        for doc in docs:
+            doc = tokenize(doc)
+            doc = set(doc)
+            for word in doc:
+                if word in df:
+                    df[word] += 1
+                else:
+                    df[word] = 1
+        ###
+        for word, count in df.items():
+            self.idf_[word] = np.log(1 + (len(docs) - count + 0.5) / (count + 0.5))
+
+        return self
 
     def score(self, query: str) -> Float[np.ndarray, "N"]:
-        """BM25-скор запроса для каждого из N документов корпуса."""
-        raise NotImplementedError
+        """BM25-скор запроса для каждого из N документов корпуса.
+        score(q, d) = сумма по УНИКАЛЬНЫМ токенам t запроса:
+        idf(t) * tf * (k1 + 1) / (tf + k1 * (1 - b + b * |d| / avgdl))"""
+        query = tokenize(query)
+        query = set(query)
+        ###
+        score = np.zeros(len(self.doc_len_))
+
+        for i, c in enumerate(self.doc_tfs_):
+            for word in query:
+                if word in self.idf_ and c[word] > 0:
+                    score[i] += self.idf_[word] * (c[word] * (self.k1 + 1)) / (c[word] + self.k1 * (1 - self.b + self.b * (self.doc_len_[i] / self.avgdl_)))
+        
+        return score
 
     def search(self, query: str, k: int = 3) -> list[tuple[int, float]]:
         """Top-k документов по BM25-скору."""
-        raise NotImplementedError
+        sc = self.score(query)
+        return top_k(sc, k)
